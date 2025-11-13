@@ -1,9 +1,17 @@
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { promises as fs } from 'fs';
 
-// Set ffmpeg path to use the bundled binary
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Set ffmpeg path - use system ffmpeg in production
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  } catch (e) {
+    console.log('Using system ffmpeg');
+  }
+} else {
+  ffmpeg.setFfmpegPath('ffmpeg');
+}
 
 export interface VideoMetadata {
   duration: number; // duration in seconds
