@@ -9,12 +9,7 @@ import { getSession, getUserWithSubscription } from '@/lib/auth/session';
 import { handleVideoUpload } from '@/lib/video/upload-handler';
 import { addProcessVideoJob } from '@/lib/queue/video-queue';
 
-export const config = {
-  api: {
-    bodyParser: false, // Disable body parsing for file uploads
-  },
-};
-
+// Next.js App Router handles multipart/form-data automatically
 export async function POST(request: NextRequest) {
   try {
     // Check authentication

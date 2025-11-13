@@ -8,13 +8,22 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { nanoid } from 'nanoid';
 import { getVideoMetadata } from './metadata';
 import { validateVideoFile, VideoConstraints, FREE_TIER_CONSTRAINTS, PRO_TIER_CONSTRAINTS } from './video-validator';
 
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Set ffmpeg path - use system ffmpeg in production, installer in development
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  } catch (e) {
+    console.log('Using system ffmpeg');
+  }
+} else {
+  // Production: Railway has ffmpeg installed
+  ffmpeg.setFfmpegPath('ffmpeg');
+}
 
 export interface UploadResult {
   storageKey: string;

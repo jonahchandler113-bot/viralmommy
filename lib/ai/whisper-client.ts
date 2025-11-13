@@ -1,12 +1,20 @@
 import OpenAI from 'openai';
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { tmpdir } from 'os';
 
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+// Set ffmpeg path - use system ffmpeg in production
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+  } catch (e) {
+    console.log('Using system ffmpeg');
+  }
+} else {
+  ffmpeg.setFfmpegPath('ffmpeg');
+}
 
 // Initialize OpenAI client with API key from environment
 if (!process.env.OPENAI_API_KEY) {
