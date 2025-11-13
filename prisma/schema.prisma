@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum VideoStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  PUBLISHED
+}
+
+enum Platform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+  TWITTER
+  FACEBOOK
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum PostStatus {
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+// User Model
+model User {
+  id                   String                @id @default(uuid())
+  email                String                @unique
+  name                 String?
+  emailVerified        DateTime?
+  image                String?
+  password             String?
+  subscriptionTier     SubscriptionTier      @default(FREE)
+  stripeCustomerId     String?               @unique
+  stripeSubscriptionId String?               @unique
+  subscriptionStatus   String?
+  subscriptionEndDate  DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  // Relations
+  accounts             Account[]
+  sessions             Session[]
+  videos               Video[]
+  platformConnections  PlatformConnection[]
+  brandKits            BrandKit[]
+  publishedPosts       PublishedPost[]
+  apiKeys              ApiKey[]
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@map("users")
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Video Model
+model Video {
+  id            String           @id @default(uuid())
+  userId        String
+  filename      String
+  originalName  String
+  storageKey    String           @unique
+  storageUrl    String?
+  thumbnailUrl  String?
+  duration      Float?
+  size          Int
+  mimeType      String
+  status        VideoStatus      @default(UPLOADING)
+  errorMessage  String?
+  aiAnalysis    Json?            // Stores AI-generated insights
+  transcription String?          @db.Text
+  metadata      Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // Relations
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiStrategies  AiStrategy[]
+  publishedPosts PublishedPost[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("videos")
+}
+
+// AI Strategy Model
+model AiStrategy {
+  id               String   @id @default(uuid())
+  videoId          String
+  hooks            Json     // Array of hook ideas
+  captions         Json     // Array of caption variations
+  hashtags         Json     // Array of hashtag sets
+  bestPostingTimes Json     // Optimal posting times per platform
+  targetAudience   String?
+  contentPillars   Json?    // Array of content themes
+  viralScore       Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  video            Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@map("ai_strategies")
+}
+
+// Platform Connection Model
+model PlatformConnection {
+  id             String   @id @default(uuid())
+  userId         String
+  platform       Platform
+  accessToken    String   @db.Text
+  refreshToken   String?  @db.Text
+  tokenExpiresAt DateTime?
+  accountId      String   // Platform-specific account ID
+  accountName    String?
+  accountHandle  String?
+  isActive       Boolean  @default(true)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+  @@index([userId])
+  @@index([platform])
+  @@map("platform_connections")
+}
+
+// Published Post Model
+model PublishedPost {
+  id              String     @id @default(uuid())
+  userId          String
+  videoId         String
+  platform        Platform
+  platformPostId  String?    // ID from the platform
+  postUrl         String?
+  caption         String?    @db.Text
+  hashtags        String[]
+  status          PostStatus @default(SCHEDULED)
+  scheduledFor    DateTime?
+  publishedAt     DateTime?
+  errorMessage    String?
+
+  // Analytics
+  views           Int        @default(0)
+  likes           Int        @default(0)
+  comments        Int        @default(0)
+  shares          Int        @default(0)
+  saves           Int        @default(0)
+  engagementRate  Float?
+  lastSyncedAt    DateTime?
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video           Video      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([videoId])
+  @@index([platform])
+  @@index([status])
+  @@index([publishedAt])
+  @@map("published_posts")
+}
+
+// Brand Kit Model
+model BrandKit {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  colors      Json     // Array of brand colors
+  fonts       Json     // Array of font configurations
+  logoUrl     String?
+  watermarkUrl String?
+  templates   Json?    // Array of template configurations
+  voiceTone   String?
+  guidelines  String?  @db.Text
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("brand_kits")
+}
+
+// API Key Model (for external integrations)
+model ApiKey {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  key         String   @unique
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean  @default(true)
+  permissions Json?    // Array of allowed permissions
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([key])
+  @@map("api_keys")
+}
