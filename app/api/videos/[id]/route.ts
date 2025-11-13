@@ -12,9 +12,9 @@ import { VideoStatus } from '@prisma/client';
 import { deleteVideoFiles } from '@/lib/video/upload-handler';
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -26,7 +26,7 @@ export async function GET(
   context: RouteContext
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await context.params;
 
     // Check authentication
     const session = await getSession();
@@ -92,7 +92,7 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await context.params;
 
     // Check authentication
     const session = await getSession();
@@ -188,7 +188,7 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const { id } = context.params;
+    const { id } = await context.params;
 
     // Check authentication
     const session = await getSession();
