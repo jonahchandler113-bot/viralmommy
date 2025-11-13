@@ -19,6 +19,9 @@ const connection = {
   maxRetriesPerRequest: null,
 };
 
+// Skip worker initialization during Next.js build
+const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
+
 /**
  * Video Processing Worker
  * Handles video upload processing:
@@ -27,7 +30,7 @@ const connection = {
  * 3. Update database
  * 4. Trigger AI analysis
  */
-export const videoWorker = new Worker(
+export const videoWorker = !isBuilding ? new Worker(
   'video-processing',
   async (job: Job<ProcessVideoJobData>) => {
     const { videoId, userId, filePath, filename } = job.data;
@@ -127,14 +130,14 @@ export const videoWorker = new Worker(
       duration: 60000, // per 60 seconds
     },
   }
-);
+) : null as any;
 
-// Event listeners
-videoWorker.on('completed', (job: Job, result: any) => {
+// Event listeners (only attach if worker exists)
+videoWorker?.on('completed', (job: Job, result: any) => {
   console.log(`[Video Worker] Job ${job.id} completed successfully:`, result);
 });
 
-videoWorker.on('failed', (job: Job | undefined, error: Error) => {
+videoWorker?.on('failed', (job: Job | undefined, error: Error) => {
   if (job) {
     console.error(`[Video Worker] Job ${job.id} failed:`, error.message);
   } else {
@@ -142,20 +145,22 @@ videoWorker.on('failed', (job: Job | undefined, error: Error) => {
   }
 });
 
-videoWorker.on('progress', (job: Job, progress: any) => {
+videoWorker?.on('progress', (job: Job, progress: any) => {
   console.log(`[Video Worker] Job ${job.id} progress: ${progress}%`);
 });
 
-videoWorker.on('error', (error: Error) => {
+videoWorker?.on('error', (error: Error) => {
   console.error('[Video Worker] Worker error:', error);
 });
 
 // Graceful shutdown
 export async function stopVideoWorker() {
-  console.log('[Video Worker] Stopping worker...');
-  await videoWorker.close();
-  await prisma.$disconnect();
-  console.log('[Video Worker] Worker stopped');
+  if (videoWorker) {
+    console.log('[Video Worker] Stopping worker...');
+    await videoWorker.close();
+    await prisma.$disconnect();
+    console.log('[Video Worker] Worker stopped');
+  }
 }
 
 process.on('SIGTERM', stopVideoWorker);

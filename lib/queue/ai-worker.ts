@@ -18,6 +18,9 @@ const connection = {
   maxRetriesPerRequest: null,
 };
 
+// Skip worker initialization during Next.js build
+const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
+
 /**
  * AI Analysis Worker
  * Handles Claude AI video analysis:
@@ -27,7 +30,7 @@ const connection = {
  * 4. Save insights to database
  * 5. Trigger strategy generation
  */
-export const aiWorker = new Worker(
+export const aiWorker = !isBuilding ? new Worker(
   'ai-analysis',
   async (job: Job<AnalyzeVideoJobData>) => {
     const { videoId, userId, filePath, framesExtracted } = job.data;
@@ -134,13 +137,13 @@ export const aiWorker = new Worker(
       duration: 60000, // per 60 seconds (conservative rate limiting)
     },
   }
-);
+) : null as any;
 
 /**
  * Strategy Generation Worker
  * Generates marketing strategies based on AI analysis
  */
-export const strategyWorker = new Worker(
+export const strategyWorker = !isBuilding ? new Worker(
   'strategy-generation',
   async (job: Job<GenerateStrategyJobData>) => {
     const { videoId, userId, analysisResult } = job.data;
@@ -213,7 +216,7 @@ export const strategyWorker = new Worker(
     connection,
     concurrency: 3,
   }
-);
+) : null as any;
 
 // Helper functions for strategy generation
 function generateHooks(analysis: any): string[] {
@@ -303,12 +306,12 @@ function generatePostingTimes(audience: string): any {
   };
 }
 
-// Event listeners for AI Worker
-aiWorker.on('completed', (job: Job, result: any) => {
+// Event listeners for AI Worker (only attach if worker exists)
+aiWorker?.on('completed', (job: Job, result: any) => {
   console.log(`[AI Worker] Job ${job.id} completed. Viral Score: ${result.viralScore}/10`);
 });
 
-aiWorker.on('failed', (job: Job | undefined, error: Error) => {
+aiWorker?.on('failed', (job: Job | undefined, error: Error) => {
   if (job) {
     console.error(`[AI Worker] Job ${job.id} failed:`, error.message);
   } else {
@@ -316,16 +319,16 @@ aiWorker.on('failed', (job: Job | undefined, error: Error) => {
   }
 });
 
-aiWorker.on('progress', (job: Job, progress: any) => {
+aiWorker?.on('progress', (job: Job, progress: any) => {
   console.log(`[AI Worker] Job ${job.id} progress: ${progress}%`);
 });
 
 // Event listeners for Strategy Worker
-strategyWorker.on('completed', (job: Job, result: any) => {
+strategyWorker?.on('completed', (job: Job, result: any) => {
   console.log(`[Strategy Worker] Job ${job.id} completed for video ${result.videoId}`);
 });
 
-strategyWorker.on('failed', (job: Job | undefined, error: Error) => {
+strategyWorker?.on('failed', (job: Job | undefined, error: Error) => {
   if (job) {
     console.error(`[Strategy Worker] Job ${job.id} failed:`, error.message);
   } else {
@@ -335,10 +338,12 @@ strategyWorker.on('failed', (job: Job | undefined, error: Error) => {
 
 // Graceful shutdown
 export async function stopAiWorkers() {
-  console.log('[AI Workers] Stopping workers...');
-  await Promise.all([aiWorker.close(), strategyWorker.close()]);
-  await prisma.$disconnect();
-  console.log('[AI Workers] Workers stopped');
+  if (aiWorker && strategyWorker) {
+    console.log('[AI Workers] Stopping workers...');
+    await Promise.all([aiWorker.close(), strategyWorker.close()]);
+    await prisma.$disconnect();
+    console.log('[AI Workers] Workers stopped');
+  }
 }
 
 process.on('SIGTERM', stopAiWorkers);
