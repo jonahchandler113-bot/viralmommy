@@ -1,0 +1,256 @@
+================================================================================
+                    VIRALMOMMY VIDEO PROCESSING QUEUE
+                         Architecture Diagram
+================================================================================
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT UPLOAD                                  │
+└────────────────────────┬─────────────────────────────────────────────────┘
+                         │
+                         │ POST /api/videos/upload
+                         │ (FormData: video file + userId)
+                         v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      UPLOAD API ROUTE                                    │
+│                  app/api/videos/upload/route.ts                          │
+│                                                                          │
+│  1. Validate file (type, size)                                          │
+│  2. Save to disk/storage                                                │
+│  3. Create Video record in DB (status: UPLOADING)                       │
+│  4. Add to processing queue                                             │
+└────────────────────────┬─────────────────────────────────────────────────┘
+                         │
+                         │ addProcessVideoJob()
+                         v
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         BULLMQ QUEUES                                    │
+│                    lib/queue/video-queue.ts                              │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐        │
+│  │  video-processing                                           │        │
+│  │  Priority: 1 | Concurrency: 2 | Rate: 5/min                │        │
+│  └──────────────────────┬──────────────────────────────────────┘        │
+│                         │                                                │
+│  ┌─────────────────────v────────────────────────────────────┐           │
+│  │  ai-analysis                                             │           │
+│  │  Priority: 2 | Concurrency: 1 | Rate: 10/min            │           │
+│  └──────────────────────┬─────────────────────────────────────┘         │
+│                         │                                                │
+│  ┌─────────────────────v────────────────────────────────────┐           │
+│  │  strategy-generation                                     │           │
+│  │  Priority: 3 | Concurrency: 3 | No rate limit           │           │
+│  └──────────────────────────────────────────────────────────┘           │
+│                                                                          │
+│  Redis Connection (or in-memory for dev)                                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         WORKER PROCESSES                                 │
+│                    lib/queue/start-workers.ts                            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+         ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+         │  Video Worker    │  │   AI Worker      │  │Strategy Worker   │
+         │  (Concurrency: 2)│  │ (Concurrency: 1) │  │(Concurrency: 3)  │
+         └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
+                  │                     │                      │
+                  v                     v                      v
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    STAGE 1: VIDEO PROCESSING                            │
+│                  lib/queue/video-worker.ts                              │
+│                                                                         │
+│  1. Update status → PROCESSING                                         │
+│  2. Extract metadata (FFmpeg)                                          │
+│     - Duration, resolution, codec                                      │
+│     - FPS, bitrate, aspect ratio                                       │
+│  3. Extract 5 key frames (evenly distributed)                          │
+│  4. Update Video.metadata in database                                  │
+│  5. Queue AI analysis job                                              │
+│                                                                         │
+│  Dependencies:                                                          │
+│  - lib/video/metadata.ts                                               │
+│  - lib/video/frame-extraction.ts                                       │
+│                                                                         │
+│  Output: { videoId, metadata, frames: 5 }                              │
+└─────────────────────┬───────────────────────────────────────────────────┘
+                      │
+                      │ addAnalyzeVideoJob()
+                      v
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    STAGE 2: AI ANALYSIS                                 │
+│                  lib/queue/ai-worker.ts                                 │
+│                                                                         │
+│  1. Extract 5 frames for Claude Vision                                 │
+│  2. Send to Claude API with analysis prompt                            │
+│  3. Parse response:                                                     │
+│     - Viral score (1-10)                                               │
+│     - Summary                                                           │
+│     - Strengths, weaknesses                                            │
+│     - Hooks, emotional tones                                           │
+│     - Recommendations                                                   │
+│  4. Save to Video.aiAnalysis                                           │
+│  5. Track cost and tokens                                              │
+│  6. Queue strategy generation                                          │
+│                                                                         │
+│  Dependencies:                                                          │
+│  - lib/ai/claude-client.ts                                             │
+│  - lib/video/frame-extraction.ts                                       │
+│                                                                         │
+│  Cost: ~$0.02-0.05 per video                                           │
+│  Output: { videoId, viralScore, cost, insights }                       │
+└─────────────────────┬───────────────────────────────────────────────────┘
+                      │
+                      │ addGenerateStrategyJob()
+                      v
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  STAGE 3: STRATEGY GENERATION                           │
+│                  lib/queue/ai-worker.ts                                 │
+│                                                                         │
+│  1. Generate hooks based on analysis                                   │
+│     - Extract from AI insights                                         │
+│     - Add content-type specific hooks                                  │
+│  2. Generate caption variations (5)                                    │
+│     - Based on summary and emotional tones                             │
+│     - Add CTAs per emotion                                             │
+│  3. Generate hashtag sets (3 variations)                               │
+│     - Base tags (#momlife, #sahm)                                      │
+│     - Content type tags                                                │
+│     - Audience tags                                                    │
+│  4. Recommend posting times                                            │
+│     - Platform-specific (TikTok, Instagram, YouTube)                   │
+│  5. Create AiStrategy record                                           │
+│  6. Update Video status → READY                                        │
+│                                                                         │
+│  Output: { videoId, strategy }                                         │
+└─────────────────────┬───────────────────────────────────────────────────┘
+                      │
+                      v
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         DATABASE UPDATES                                │
+│                          Prisma (PostgreSQL)                            │
+│                                                                         │
+│  Video Table:                                                           │
+│  ├─ status: READY                                                       │
+│  ├─ metadata: { duration, resolution, codec, ... }                     │
+│  └─ aiAnalysis: {                                                       │
+│      viralScore: 8.5,                                                   │
+│      summary: "...",                                                    │
+│      strengths: [...],                                                  │
+│      weaknesses: [...],                                                 │
+│      hooks: [...],                                                      │
+│      recommendations: [...],                                            │
+│      cost: 0.0234                                                       │
+│    }                                                                    │
+│                                                                         │
+│  AiStrategy Table:                                                      │
+│  ├─ videoId                                                             │
+│  ├─ hooks: [...]                                                        │
+│  ├─ captions: [...]                                                     │
+│  ├─ hashtags: [[...], [...], [...]]                                    │
+│  ├─ bestPostingTimes: {...}                                            │
+│  ├─ viralScore: 8.5                                                     │
+│  └─ targetAudience: "Stay-at-home moms"                                │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                           MONITORING APIs                                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+GET /api/queue/status?jobId=xxx&queue=video
+    │
+    ├─> Returns: { state, progress, data, failedReason }
+    │
+GET /api/queue/stats
+    │
+    ├─> Returns: {
+    │     video: { waiting, active, completed, failed },
+    │     ai: { ... },
+    │     strategy: { ... }
+    │   }
+    │
+GET /api/queue/health
+    │
+    └─> Returns: { healthy, queues: [...] }
+
+================================================================================
+                            ERROR HANDLING
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Automatic Retry Logic (Exponential Backoff)                           │
+│                                                                         │
+│  Video Processing:  3 attempts  → 2s, 4s, 8s delays                    │
+│  AI Analysis:       2 attempts  → 5s, 10s delays                       │
+│  Strategy Gen:      2 attempts  → 3s, 6s delays                        │
+│                                                                         │
+│  On Final Failure:                                                      │
+│  ├─ Video.status → FAILED                                              │
+│  ├─ Video.errorMessage → Error details                                 │
+│  └─ Job retained for debugging (500 failed jobs max)                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+                         DEVELOPMENT vs PRODUCTION
+================================================================================
+
+┌────────────────────────────┬────────────────────────────────────────────┐
+│       DEVELOPMENT          │            PRODUCTION                      │
+├────────────────────────────┼────────────────────────────────────────────┤
+│ USE_IN_MEMORY_QUEUE=true   │ USE_IN_MEMORY_QUEUE=false                  │
+│ No Redis required          │ Redis required                             │
+│ Jobs lost on restart       │ Jobs persisted                             │
+│ Good for testing           │ Good for production                        │
+│                            │                                            │
+│ Start:                     │ Start:                                     │
+│ npm run dev                │ docker run -d redis:alpine                 │
+│ npm run workers            │ npm run dev                                │
+│                            │ npm run workers                            │
+└────────────────────────────┴────────────────────────────────────────────┘
+
+================================================================================
+                            PERFORMANCE METRICS
+================================================================================
+
+Processing Time (30s video):
+├─ Frame extraction:      ~5 seconds
+├─ AI analysis:           ~10 seconds (Claude API)
+└─ Strategy generation:   ~2 seconds
+Total:                    ~17 seconds
+
+Cost per Video:
+└─ Claude API: $0.02-0.05 (5 frames @ Sonnet 4.5 pricing)
+
+Throughput:
+├─ Video processing:  2 concurrent jobs, 5/min
+├─ AI analysis:       1 concurrent job, 10/min (Claude limit)
+└─ Strategy gen:      3 concurrent jobs, unlimited
+
+================================================================================
+                            FILE STRUCTURE
+================================================================================
+
+viralmommy/
+├── lib/
+│   └── queue/
+│       ├── video-queue.ts         (Queue setup, 219 lines)
+│       ├── video-worker.ts        (Video processing, 93 lines)
+│       ├── ai-worker.ts           (AI + strategy, 332 lines)
+│       ├── types.ts               (Type definitions, 144 lines)
+│       └── start-workers.ts       (Worker startup, 31 lines)
+├── app/
+│   └── api/
+│       └── queue/
+│           ├── add-video/route.ts (Add to queue, 52 lines)
+│           ├── status/route.ts    (Job status, 67 lines)
+│           ├── stats/route.ts     (Queue stats, 20 lines)
+│           └── health/route.ts    (Health check, 65 lines)
+└── docs/
+    ├── VIDEO_PROCESSING_QUEUE.md  (Full documentation)
+    ├── QUEUE_QUICKSTART.md        (5-minute setup)
+    ├── QUEUE_SUMMARY.md           (Implementation summary)
+    └── QUEUE_ARCHITECTURE.txt     (This diagram)
+
+================================================================================
+                              END OF DIAGRAM
+================================================================================

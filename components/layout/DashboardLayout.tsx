@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Upload', href: '/upload', icon: Upload },
   { name: 'Videos', href: '/videos', icon: Video },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },

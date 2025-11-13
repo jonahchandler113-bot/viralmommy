@@ -1,50 +1,21 @@
 /**
- * Database client stub
- * TODO: Implement actual database connection with Prisma
+ * Prisma Database Client
+ * Singleton pattern to prevent multiple instances in development
  */
 
-// Stub types for database records
-type PlatformConnection = {
-  id: string;
-  userId: string;
-  platform: string;
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: Date;
-  status: string;
-  platformUserId?: string;
-  platformUsername?: string;
-}
+import { PrismaClient } from '@prisma/client';
 
-type Video = {
-  id: string;
-  userId: string;
-  title: string;
-  status: string;
-}
-
-type User = {
-  id: string;
-  email: string;
-  name: string;
-}
-
-export const db = {
-  platformConnection: {
-    findFirst: async (_args?: any): Promise<PlatformConnection | null> => null,
-    findMany: async (_args?: any): Promise<PlatformConnection[]> => [],
-    update: async (_args?: any): Promise<PlatformConnection> => ({} as PlatformConnection),
-    create: async (_args?: any): Promise<PlatformConnection> => ({} as PlatformConnection),
-  },
-  video: {
-    findMany: async (_args?: any): Promise<Video[]> => [],
-    findUnique: async (_args?: any): Promise<Video | null> => null,
-    create: async (_args?: any): Promise<Video> => ({} as Video),
-    update: async (_args?: any): Promise<Video> => ({} as Video),
-  },
-  user: {
-    findUnique: async (_args?: any): Promise<User | null> => null,
-    create: async (_args?: any): Promise<User> => ({} as User),
-    update: async (_args?: any): Promise<User> => ({} as User),
-  }
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
 };
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+// Export as db for backward compatibility
+export const db = prisma;
