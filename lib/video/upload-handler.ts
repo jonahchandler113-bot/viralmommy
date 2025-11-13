@@ -67,7 +67,7 @@ export async function handleVideoUpload(
     generateThumbnail?: boolean;
   }
 ): Promise<UploadResult> {
-  const { userId, tier = 'FREE', generateThumbnail = true } = options;
+  const { userId, tier = 'FREE', generateThumbnail: shouldGenerateThumbnail = true } = options;
 
   // Validate file
   const constraints = getUploadConstraints(tier);
@@ -119,7 +119,7 @@ export async function handleVideoUpload(
     };
 
     // Generate thumbnail
-    if (generateThumbnail) {
+    if (shouldGenerateThumbnail) {
       thumbnailUrl = await generateThumbnail(filepath, userId, fileId);
     }
   } catch (error) {
