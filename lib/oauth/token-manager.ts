@@ -101,10 +101,10 @@ export async function storeConnection({
       data: {
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
-        expiresAt,
-        platformUserId,
-        platformUsername,
-        status: ConnectionStatus.ACTIVE,
+        tokenExpiresAt: expiresAt,
+        accountId: platformUserId,
+        accountHandle: platformUsername,
+        isActive: true,
       },
     });
   } else {
@@ -115,10 +115,10 @@ export async function storeConnection({
         platform,
         accessToken: encryptedAccessToken,
         refreshToken: encryptedRefreshToken,
-        expiresAt,
-        platformUserId,
-        platformUsername,
-        status: ConnectionStatus.ACTIVE,
+        tokenExpiresAt: expiresAt,
+        accountId: platformUserId,
+        accountHandle: platformUsername,
+        isActive: true,
       },
     });
   }
@@ -132,7 +132,7 @@ export async function getConnection(userId: string, platform: Platform) {
     where: {
       userId,
       platform,
-      status: ConnectionStatus.ACTIVE,
+      isActive: true,
     },
   });
 
@@ -176,7 +176,7 @@ export async function getValidAccessToken(
   }
 
   // Check if token needs refresh
-  if (connection.expiresAt && needsRefresh(connection.expiresAt, platform)) {
+  if (connection.tokenExpiresAt && needsRefresh(connection.tokenExpiresAt, platform)) {
     // Refresh token
     const newTokens = await refreshPlatformToken(platform, connection.refreshToken!);
 
@@ -187,8 +187,8 @@ export async function getValidAccessToken(
       accessToken: newTokens.accessToken,
       refreshToken: newTokens.refreshToken || connection.refreshToken!,
       expiresAt: newTokens.expiresAt,
-      platformUserId: connection.platformUserId || '',
-      platformUsername: connection.platformUsername || '',
+      platformUserId: connection.accountId || '',
+      platformUsername: connection.accountHandle || '',
     });
 
     return newTokens.accessToken;
@@ -343,7 +343,7 @@ export async function disconnectPlatform(userId: string, platform: Platform) {
   await db.platformConnection.update({
     where: { id: connection.id },
     data: {
-      status: ConnectionStatus.EXPIRED,
+      isActive: false,
     },
   });
 }
@@ -355,7 +355,7 @@ export async function getAllConnections(userId: string) {
   const connections = await db.platformConnection.findMany({
     where: {
       userId,
-      status: ConnectionStatus.ACTIVE,
+      isActive: true,
     },
   });
 
@@ -375,7 +375,7 @@ export async function refreshExpiringTokens(userId: string) {
   const refreshPromises = [];
 
   for (const connection of connections) {
-    if (connection.expiresAt && needsRefresh(connection.expiresAt, connection.platform as Platform)) {
+    if (connection.tokenExpiresAt && needsRefresh(connection.tokenExpiresAt, connection.platform as Platform)) {
       refreshPromises.push(
         getValidAccessToken(userId, connection.platform as Platform).catch((error) => {
           console.error(
@@ -386,7 +386,7 @@ export async function refreshExpiringTokens(userId: string) {
           // Mark connection as expired if refresh fails
           return db.platformConnection.update({
             where: { id: connection.id },
-            data: { status: ConnectionStatus.EXPIRED },
+            data: { isActive: false },
           });
         })
       );
@@ -405,15 +405,15 @@ export async function refreshAllUsersTokens() {
   // Get all users with active connections
   const connections = await db.platformConnection.findMany({
     where: {
-      status: ConnectionStatus.ACTIVE,
-      expiresAt: {
+      isActive: true,
+      tokenExpiresAt: {
         not: null,
       },
     },
     select: {
       userId: true,
       platform: true,
-      expiresAt: true,
+      tokenExpiresAt: true,
     },
   });
 
