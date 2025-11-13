@@ -29,6 +29,9 @@ export enum JobType {
   GENERATE_STRATEGY = 'generate-strategy',
 }
 
+// Skip queue initialization during Next.js build
+const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
+
 // Queue configuration
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
@@ -36,19 +39,20 @@ const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
 const USE_IN_MEMORY = process.env.USE_IN_MEMORY_QUEUE === 'true';
 
 // Create Redis connection or in-memory alternative
-let connection: IORedis | ConnectionOptions;
+let connection: IORedis | ConnectionOptions | null = null;
 
-if (USE_IN_MEMORY) {
-  console.log('Using in-memory queue (development mode)');
-  // For development without Redis, we'll use a simple connection config
-  // BullMQ will handle the fallback
-  connection = {
-    host: 'localhost',
-    port: 6379,
-    maxRetriesPerRequest: null,
-  };
-} else {
-  connection = new IORedis({
+if (!isBuilding) {
+  if (USE_IN_MEMORY) {
+    console.log('Using in-memory queue (development mode)');
+    // For development without Redis, we'll use a simple connection config
+    // BullMQ will handle the fallback
+    connection = {
+      host: 'localhost',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    };
+  } else {
+    connection = new IORedis({
     host: REDIS_HOST,
     port: REDIS_PORT,
     password: REDIS_PASSWORD,
@@ -59,17 +63,18 @@ if (USE_IN_MEMORY) {
     },
   });
 
-  connection.on('connect', () => {
-    console.log('Redis connected successfully');
-  });
+    connection.on('connect', () => {
+      console.log('Redis connected successfully');
+    });
 
-  connection.on('error', (err: Error) => {
-    console.error('Redis connection error:', err);
-  });
+    connection.on('error', (err: Error) => {
+      console.error('Redis connection error:', err);
+    });
+  }
 }
 
-// Create queues
-export const videoQueue = new Queue('video-processing', {
+// Create queues (only if not building)
+export const videoQueue = !isBuilding && connection ? new Queue('video-processing', {
   connection,
   defaultJobOptions: {
     attempts: 3,
@@ -85,9 +90,9 @@ export const videoQueue = new Queue('video-processing', {
       count: 500, // Keep last 500 failed jobs for debugging
     },
   },
-});
+}) : null as any;
 
-export const aiQueue = new Queue('ai-analysis', {
+export const aiQueue = !isBuilding && connection ? new Queue('ai-analysis', {
   connection,
   defaultJobOptions: {
     attempts: 2,
@@ -103,9 +108,9 @@ export const aiQueue = new Queue('ai-analysis', {
       count: 500,
     },
   },
-});
+}) : null as any;
 
-export const strategyQueue = new Queue('strategy-generation', {
+export const strategyQueue = !isBuilding && connection ? new Queue('strategy-generation', {
   connection,
   defaultJobOptions: {
     attempts: 2,
@@ -121,12 +126,12 @@ export const strategyQueue = new Queue('strategy-generation', {
       count: 500,
     },
   },
-});
+}) : null as any;
 
-// Queue events for monitoring
-export const videoQueueEvents = new QueueEvents('video-processing', { connection });
-export const aiQueueEvents = new QueueEvents('ai-analysis', { connection });
-export const strategyQueueEvents = new QueueEvents('strategy-generation', { connection });
+// Queue events for monitoring (only if not building)
+export const videoQueueEvents = !isBuilding && connection ? new QueueEvents('video-processing', { connection }) : null as any;
+export const aiQueueEvents = !isBuilding && connection ? new QueueEvents('ai-analysis', { connection }) : null as any;
+export const strategyQueueEvents = !isBuilding && connection ? new QueueEvents('strategy-generation', { connection }) : null as any;
 
 // Helper functions to add jobs to queue
 export async function addProcessVideoJob(data: ProcessVideoJobData) {
