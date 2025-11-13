@@ -142,7 +142,7 @@ videoWorker.on('failed', (job: Job | undefined, error: Error) => {
   }
 });
 
-videoWorker.on('progress', (job: Job, progress: number | object) => {
+videoWorker.on('progress', (job: Job, progress: number | object | string) => {
   console.log(`[Video Worker] Job ${job.id} progress: ${progress}%`);
 });
 

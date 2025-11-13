@@ -316,7 +316,7 @@ aiWorker.on('failed', (job: Job | undefined, error: Error) => {
   }
 });
 
-aiWorker.on('progress', (job: Job, progress: number | object) => {
+aiWorker.on('progress', (job: Job, progress: number | object | string) => {
   console.log(`[AI Worker] Job ${job.id} progress: ${progress}%`);
 });
 
