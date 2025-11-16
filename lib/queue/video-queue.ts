@@ -33,9 +33,7 @@ export enum JobType {
 const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
 
 // Queue configuration
-const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
+const REDIS_URL = process.env.REDIS_URL;
 const USE_IN_MEMORY = process.env.USE_IN_MEMORY_QUEUE === 'true';
 
 // Create Redis connection or in-memory alternative
@@ -51,17 +49,15 @@ if (!isBuilding) {
       port: 6379,
       maxRetriesPerRequest: null,
     };
-  } else {
-    connection = new IORedis({
-    host: REDIS_HOST,
-    port: REDIS_PORT,
-    password: REDIS_PASSWORD,
-    maxRetriesPerRequest: null,
-    retryStrategy: (times: number) => {
-      const delay = Math.min(times * 50, 2000);
-      return delay;
-    },
-  });
+  } else if (REDIS_URL) {
+    // Use REDIS_URL connection string directly (Railway format)
+    connection = new IORedis(REDIS_URL, {
+      maxRetriesPerRequest: null,
+      retryStrategy: (times: number) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
+    });
 
     connection.on('connect', () => {
       console.log('Redis connected successfully');
@@ -70,6 +66,8 @@ if (!isBuilding) {
     connection.on('error', (err: Error) => {
       console.error('Redis connection error:', err);
     });
+  } else {
+    console.warn('No Redis connection configured - queues will not work');
   }
 }
 

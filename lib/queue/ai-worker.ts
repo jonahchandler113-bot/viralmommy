@@ -1,4 +1,5 @@
 import { Worker, Job } from 'bullmq';
+import IORedis from 'ioredis';
 import { JobType, AnalyzeVideoJobData, GenerateStrategyJobData, addGenerateStrategyJob } from './video-queue';
 import { analyzeVideoFrames } from '../ai/claude-client';
 import { extractKeyFrames } from '../video/frame-extraction';
@@ -6,17 +7,12 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Redis connection config (same as queue)
-const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379', 10);
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
+// Redis connection config (use REDIS_URL from Railway)
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-const connection = {
-  host: REDIS_HOST,
-  port: REDIS_PORT,
-  password: REDIS_PASSWORD,
+const connection = new IORedis(REDIS_URL, {
   maxRetriesPerRequest: null,
-};
+});
 
 // Skip worker initialization during Next.js build
 const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
