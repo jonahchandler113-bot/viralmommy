@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Heart, Mail, Lock, User, Chrome, Check } from 'lucide-react'
+import { signIn } from 'next-auth/react'
+import { Heart, Mail, Lock, User, Chrome, Check, Apple } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +15,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isAppleLoading, setIsAppleLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,13 +25,28 @@ export default function SignupPage() {
       return
     }
     setIsLoading(true)
-    // TODO: Implement actual signup logic
+    // TODO: Implement email/password signup logic
     setTimeout(() => setIsLoading(false), 1000)
   }
 
-  const handleGoogleSignup = () => {
-    // TODO: Implement Google OAuth
-    console.log('Google signup')
+  const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true)
+    try {
+      await signIn('google', { callbackUrl: '/dashboard' })
+    } catch (error) {
+      console.error('Google signup error:', error)
+      setIsGoogleLoading(false)
+    }
+  }
+
+  const handleAppleSignup = async () => {
+    setIsAppleLoading(true)
+    try {
+      await signIn('apple', { callbackUrl: '/dashboard' })
+    } catch (error) {
+      console.error('Apple signup error:', error)
+      setIsAppleLoading(false)
+    }
   }
 
   return (
@@ -149,16 +167,49 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              size="lg"
-              onClick={handleGoogleSignup}
-            >
-              <Chrome className="mr-2 h-5 w-5" />
-              Sign up with Google
-            </Button>
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={handleGoogleSignup}
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <div className="mr-2 h-5 w-5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    Signing up...
+                  </>
+                ) : (
+                  <>
+                    <Chrome className="mr-2 h-5 w-5" />
+                    Sign up with Google
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full bg-black text-white hover:bg-gray-900"
+                size="lg"
+                onClick={handleAppleSignup}
+                disabled={isAppleLoading}
+              >
+                {isAppleLoading ? (
+                  <>
+                    <div className="mr-2 h-5 w-5 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                    Signing up...
+                  </>
+                ) : (
+                  <>
+                    <Apple className="mr-2 h-5 w-5" />
+                    Sign up with Apple
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
           <CardFooter>
             <p className="text-sm text-center w-full text-muted-foreground">

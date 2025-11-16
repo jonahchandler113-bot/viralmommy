@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Heart, Mail, Lock, Chrome } from 'lucide-react'
+import { signIn } from 'next-auth/react'
+import { Heart, Mail, Lock, Chrome, Apple } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,17 +13,34 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isAppleLoading, setIsAppleLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // TODO: Implement actual login logic
+    // TODO: Implement email/password login logic
     setTimeout(() => setIsLoading(false), 1000)
   }
 
-  const handleGoogleLogin = () => {
-    // TODO: Implement Google OAuth
-    console.log('Google login')
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true)
+    try {
+      await signIn('google', { callbackUrl: '/dashboard' })
+    } catch (error) {
+      console.error('Google login error:', error)
+      setIsGoogleLoading(false)
+    }
+  }
+
+  const handleAppleLogin = async () => {
+    setIsAppleLoading(true)
+    try {
+      await signIn('apple', { callbackUrl: '/dashboard' })
+    } catch (error) {
+      console.error('Apple login error:', error)
+      setIsAppleLoading(false)
+    }
   }
 
   return (
@@ -109,16 +127,49 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              size="lg"
-              onClick={handleGoogleLogin}
-            >
-              <Chrome className="mr-2 h-5 w-5" />
-              Sign in with Google
-            </Button>
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={handleGoogleLogin}
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <div className="mr-2 h-5 w-5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Chrome className="mr-2 h-5 w-5" />
+                    Sign in with Google
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full bg-black text-white hover:bg-gray-900"
+                size="lg"
+                onClick={handleAppleLogin}
+                disabled={isAppleLoading}
+              >
+                {isAppleLoading ? (
+                  <>
+                    <div className="mr-2 h-5 w-5 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Apple className="mr-2 h-5 w-5" />
+                    Sign in with Apple
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
           <CardFooter>
             <p className="text-sm text-center w-full text-muted-foreground">
