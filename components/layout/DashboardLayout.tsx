@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard,
   Video,
@@ -14,7 +15,8 @@ import {
   Heart,
   LogOut,
   User,
-  CreditCard
+  CreditCard,
+  ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,24 +45,30 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
+  const { data: session } = useSession()
+
+  const userEmail = session?.user?.email || 'user@example.com'
+  const userName = session?.user?.name || 'Creator'
+  const userInitial = userName.charAt(0).toUpperCase()
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div
         className={cn(
-          'fixed inset-0 z-50 bg-gray-900/80 lg:hidden transition-opacity',
+          'fixed inset-0 z-50 bg-gray-900/80 lg:hidden transition-opacity duration-300',
           sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         )}
         onClick={() => setSidebarOpen(false)}
       >
         <div
           className={cn(
-            'fixed inset-y-0 left-0 w-64 bg-white shadow-xl transform transition-transform',
+            'fixed inset-y-0 left-0 w-72 bg-white shadow-xl transform transition-transform duration-300 ease-out flex flex-col',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           )}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Header */}
           <div className="flex h-16 items-center justify-between px-6 border-b">
             <div className="flex items-center gap-2">
               <Heart className="h-8 w-8 text-pink-600 fill-pink-600" />
@@ -68,11 +76,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 ViralMommy
               </span>
             </div>
-            <button onClick={() => setSidebarOpen(false)}>
-              <X className="h-6 w-6" />
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5 text-gray-600" />
             </button>
           </div>
-          <nav className="flex-1 space-y-1 px-3 py-4">
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -80,32 +93,61 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200',
                     isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                      : 'text-gray-700 hover:bg-gray-100 hover:translate-x-1'
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span>{item.name}</span>
+                  {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
                 </Link>
               )
             })}
           </nav>
+
+          {/* User Profile Section */}
+          <div className="border-t p-4 bg-gray-50">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar className="h-10 w-10 border-2 border-purple-200">
+                <AvatarImage src={session?.user?.image || undefined} alt={userName} />
+                <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold">
+                  {userInitial}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-1 min-h-0 bg-white border-r">
+        <div className="flex flex-col flex-1 min-h-0 bg-white border-r shadow-sm">
+          {/* Logo */}
           <div className="flex h-16 items-center px-6 border-b">
             <Heart className="h-8 w-8 text-pink-600 fill-pink-600" />
             <span className="ml-2 text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               ViralMommy
             </span>
           </div>
-          <nav className="flex-1 space-y-1 px-3 py-4">
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -113,22 +155,52 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                    'flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200',
                     isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                      : 'text-gray-700 hover:bg-gray-100 hover:translate-x-1'
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <span>{item.name}</span>
+                  {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
                 </Link>
               )
             })}
           </nav>
-          <div className="p-4 border-t">
-            <Button className="w-full" size="lg">
-              <Upload className="h-5 w-5 mr-2" />
-              Upload Video
+
+          {/* Quick Upload CTA */}
+          <div className="px-4 py-3 border-t border-b">
+            <Link href="/upload">
+              <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30" size="lg">
+                <Upload className="h-5 w-5 mr-2" />
+                Upload Video
+              </Button>
+            </Link>
+          </div>
+
+          {/* User Profile Section */}
+          <div className="p-4 bg-gray-50">
+            <div className="flex items-center gap-3 mb-3">
+              <Avatar className="h-10 w-10 border-2 border-purple-200">
+                <AvatarImage src={session?.user?.image || undefined} alt={userName} />
+                <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold">
+                  {userInitial}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
             </Button>
           </div>
         </div>
@@ -137,30 +209,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-white border-b">
+        <header className="sticky top-0 z-40 bg-white border-b backdrop-blur-sm bg-white/95">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <button
-              className="lg:hidden"
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6 text-gray-700" />
             </button>
 
             <div className="flex-1 lg:hidden" />
 
-            <div className="flex items-center gap-4">
-              <Button className="hidden sm:inline-flex">
-                <Upload className="h-4 w-4 mr-2" />
-                Upload Video
-              </Button>
+            <div className="flex items-center gap-3">
+              <Link href="/upload" className="hidden sm:inline-flex">
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-md shadow-purple-500/20">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Video
+                </Button>
+              </Link>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar>
-                      <AvatarImage src="/avatars/default.png" alt="User" />
-                      <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-                        M
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-gray-100">
+                    <Avatar className="h-9 w-9 border-2 border-purple-200">
+                      <AvatarImage src={session?.user?.image || undefined} alt={userName} />
+                      <AvatarFallback className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold">
+                        {userInitial}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -168,23 +243,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium">Mom Creator</p>
-                      <p className="text-xs text-muted-foreground">mom@example.com</p>
+                      <p className="text-sm font-medium">{userName}</p>
+                      <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Subscription
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Subscription
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-error-600">
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer"
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
-                    Log out
+                    Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
