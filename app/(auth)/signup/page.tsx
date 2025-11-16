@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
-import { Heart, Mail, Lock, User, Chrome, Check, Apple } from 'lucide-react'
+import { Heart, Mail, Lock, User, Check, Apple } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { GoogleLogo } from '@/components/auth/GoogleLogo'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -168,31 +169,32 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-3">
-              <Button
+              {/* Official Google OAuth Button */}
+              <button
                 type="button"
-                variant="outline"
-                className="w-full"
-                size="lg"
                 onClick={handleGoogleSignup}
                 disabled={isGoogleLoading}
+                className="w-full h-11 flex items-center justify-center gap-3 bg-white border border-[#DADCE0] rounded text-[#3C4043] font-medium text-sm hover:bg-[#F8F9FA] hover:shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ fontFamily: 'Roboto, system-ui, -apple-system, sans-serif' }}
               >
                 {isGoogleLoading ? (
                   <>
-                    <div className="mr-2 h-5 w-5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
-                    Signing up...
+                    <div className="h-[18px] w-[18px] border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    <span>Signing up...</span>
                   </>
                 ) : (
                   <>
-                    <Chrome className="mr-2 h-5 w-5" />
-                    Sign up with Google
+                    <GoogleLogo />
+                    <span>Continue with Google</span>
                   </>
                 )}
-              </Button>
+              </button>
 
+              {/* Apple Sign In Button */}
               <Button
                 type="button"
                 variant="outline"
-                className="w-full bg-black text-white hover:bg-gray-900"
+                className="w-full bg-black text-white hover:bg-gray-900 border-black"
                 size="lg"
                 onClick={handleAppleSignup}
                 disabled={isAppleLoading}
