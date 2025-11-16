@@ -2,10 +2,12 @@
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { EmptyDashboard } from '@/components/dashboard/EmptyDashboard'
+import { NewCreatorDashboard } from '@/components/dashboard/NewCreatorDashboard'
+import { ActiveDashboard } from '@/components/dashboard/ActiveDashboard'
 import { usePlatformConnections } from '@/hooks/usePlatformConnections'
 
 export default function DashboardPage() {
-  const { hasConnections, isLoading } = usePlatformConnections()
+  const { hasConnections, hasVideos, connectedPlatformNames, isLoading } = usePlatformConnections()
 
   if (isLoading) {
     return (
@@ -29,16 +31,19 @@ export default function DashboardPage() {
     )
   }
 
-  // STATE 2 & 3: Will be implemented in next phase
-  // For now, show coming soon message
+  // STATE 2: Has platform connections but no videos yet
+  if (hasConnections && !hasVideos) {
+    return (
+      <DashboardLayout>
+        <NewCreatorDashboard connectedPlatforms={connectedPlatformNames} />
+      </DashboardLayout>
+    )
+  }
+
+  // STATE 3: Has connections AND videos - show full analytics dashboard
   return (
     <DashboardLayout>
-      <div className="text-center py-20">
-        <h2 className="text-2xl font-bold text-gray-900">Full Dashboard Coming Soon!</h2>
-        <p className="text-gray-600 mt-2">
-          You have connections - the full analytics dashboard will be available in the next update.
-        </p>
-      </div>
+      <ActiveDashboard />
     </DashboardLayout>
   )
 }

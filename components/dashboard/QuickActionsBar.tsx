@@ -1,0 +1,55 @@
+import { Button } from '@/components/ui/button'
+import { Upload, Lightbulb, Droplet, Calendar, ArrowRight } from 'lucide-react'
+import Link from 'next/link'
+
+export function QuickActionsBar() {
+  return (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <Link href="/upload" className="block">
+        <div className="group bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl p-6 text-white hover:shadow-xl transition-all duration-200 cursor-pointer">
+          <div className="flex items-center justify-between mb-3">
+            <div className="rounded-lg bg-white/20 p-2">
+              <Upload className="h-5 w-5" />
+            </div>
+            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+          <h3 className="font-bold text-lg mb-1">Upload New Video</h3>
+          <p className="text-sm text-white/80">Get AI-powered insights instantly</p>
+        </div>
+      </Link>
+
+      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
+        <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg bg-yellow-100 p-2">
+            <Lightbulb className="h-5 w-5 text-yellow-600" />
+          </div>
+          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+        </div>
+        <h3 className="font-bold text-lg mb-1 text-gray-900">Generate Content Ideas</h3>
+        <p className="text-sm text-gray-600">AI-powered video concepts</p>
+      </button>
+
+      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
+        <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg bg-blue-100 p-2">
+            <Droplet className="h-5 w-5 text-blue-600" />
+          </div>
+          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+        </div>
+        <h3 className="font-bold text-lg mb-1 text-gray-900">Check Watermark Status</h3>
+        <p className="text-sm text-gray-600">Ensure your videos are clean</p>
+      </button>
+
+      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
+        <div className="flex items-center justify-between mb-3">
+          <div className="rounded-lg bg-green-100 p-2">
+            <Calendar className="h-5 w-5 text-green-600" />
+          </div>
+          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+        </div>
+        <h3 className="font-bold text-lg mb-1 text-gray-900">View Content Calendar</h3>
+        <p className="text-sm text-gray-600">Plan your posting schedule</p>
+      </button>
+    </div>
+  )
+}
