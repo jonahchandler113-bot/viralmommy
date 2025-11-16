@@ -2,20 +2,41 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Mail, Lock, CreditCard, CheckCircle2, XCircle, Link as LinkIcon, Crown, Zap } from 'lucide-react'
+import { User, Mail, Lock, CreditCard, CheckCircle2, XCircle, Link as LinkIcon, Crown, Zap, Loader2 } from 'lucide-react'
 import { ComingSoonModal } from '@/components/dashboard/ComingSoonModal'
+import { loadStripe } from '@stripe/stripe-js'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 export default function SettingsPage() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('profile')
   const [showComingSoon, setShowComingSoon] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState('')
   const [selectedColor, setSelectedColor] = useState('')
+
+  // Profile state
+  const [name, setName] = useState(session?.user?.name || '')
+  const [bio, setBio] = useState('')
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileMessage, setProfileMessage] = useState('')
+
+  // Password state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+
+  // Subscription state
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
 
   const userEmail = session?.user?.email || 'user@example.com'
   const userName = session?.user?.name || 'Creator'
@@ -39,6 +60,99 @@ export default function SettingsPage() {
     setSelectedPlatform(platformName)
     setSelectedColor(platformColor)
     setShowComingSoon(true)
+  }
+
+  const handleProfileSave = async () => {
+    setProfileLoading(true)
+    setProfileMessage('')
+
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, bio }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update profile')
+      }
+
+      // Update session
+      await update({ name: data.user.name })
+      setProfileMessage('Profile updated successfully!')
+      setTimeout(() => setProfileMessage(''), 3000)
+    } catch (error: any) {
+      setProfileMessage(error.message || 'Failed to update profile')
+    } finally {
+      setProfileLoading(false)
+    }
+  }
+
+  const handlePasswordChange = async () => {
+    setPasswordLoading(true)
+    setPasswordMessage('')
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage('Passwords do not match')
+      setPasswordLoading(false)
+      return
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordMessage('Password must be at least 8 characters')
+      setPasswordLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/user/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update password')
+      }
+
+      setPasswordMessage('Password updated successfully!')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordMessage(''), 3000)
+    } catch (error: any) {
+      setPasswordMessage(error.message || 'Failed to update password')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const handleSubscribe = async (priceId: string, planName: string) => {
+    setCheckoutLoading(planName)
+
+    try {
+      const response = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, planName }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = data.url
+    } catch (error: any) {
+      alert(error.message || 'Failed to start checkout')
+      setCheckoutLoading(null)
+    }
   }
 
   return (
@@ -98,7 +212,8 @@ export default function SettingsPage() {
                 <Input
                   id="name"
                   type="text"
-                  defaultValue={userName}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
                 />
               </div>
@@ -109,7 +224,7 @@ export default function SettingsPage() {
                 <Input
                   id="email"
                   type="email"
-                  defaultValue={userEmail}
+                  value={userEmail}
                   placeholder="your@email.com"
                   disabled
                 />
@@ -124,12 +239,34 @@ export default function SettingsPage() {
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                   placeholder="Tell us about yourself and your content..."
-                  defaultValue="Stay-at-home mom creating content about family life, organization, and daily routines. Building my empire one video at a time! 💜"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
                 />
               </div>
 
-              <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                Save Changes
+              {profileMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  profileMessage.includes('success')
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {profileMessage}
+                </div>
+              )}
+
+              <Button
+                onClick={handleProfileSave}
+                disabled={profileLoading}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                {profileLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -147,6 +284,8 @@ export default function SettingsPage() {
                   id="current-password"
                   type="password"
                   placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -155,6 +294,8 @@ export default function SettingsPage() {
                   id="new-password"
                   type="password"
                   placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -163,9 +304,35 @@ export default function SettingsPage() {
                   id="confirm-password"
                   type="password"
                   placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
-              <Button variant="outline">Update Password</Button>
+
+              {passwordMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  passwordMessage.includes('success')
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
+                }`}>
+                  {passwordMessage}
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={handlePasswordChange}
+                disabled={passwordLoading}
+              >
+                {passwordLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Password'
+                )}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -331,8 +498,19 @@ export default function SettingsPage() {
                     <span>Connect up to 4 platforms</span>
                   </div>
                 </div>
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                  Upgrade to Pro
+                <Button
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  onClick={() => handleSubscribe(process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || 'price_pro', 'pro')}
+                  disabled={checkoutLoading === 'pro'}
+                >
+                  {checkoutLoading === 'pro' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Upgrade to Pro'
+                  )}
                 </Button>
               </CardContent>
             </Card>
@@ -368,8 +546,20 @@ export default function SettingsPage() {
                     <span>API access</span>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full">
-                  Upgrade to Enterprise
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleSubscribe(process.env.NEXT_PUBLIC_STRIPE_ENTERPRISE_PRICE_ID || 'price_enterprise', 'enterprise')}
+                  disabled={checkoutLoading === 'enterprise'}
+                >
+                  {checkoutLoading === 'enterprise' ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Upgrade to Enterprise'
+                  )}
                 </Button>
               </CardContent>
             </Card>
