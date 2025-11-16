@@ -48,7 +48,7 @@ model User {
   name                 String?
   emailVerified        DateTime?
   image                String?
-  password             String?
+  hashedPassword       String?
   subscriptionTier     SubscriptionTier      @default(FREE)
   stripeCustomerId     String?               @unique
   stripeSubscriptionId String?               @unique

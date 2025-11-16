@@ -25,9 +25,55 @@ export default function SignupPage() {
       alert('Please agree to the terms and conditions')
       return
     }
+
+    if (password.length < 8) {
+      alert('Password must be at least 8 characters long')
+      return
+    }
+
     setIsLoading(true)
-    // TODO: Implement email/password signup logic
-    setTimeout(() => setIsLoading(false), 1000)
+
+    try {
+      // Register the user
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      })
+
+      const data = await registerResponse.json()
+
+      if (!registerResponse.ok) {
+        alert(data.error || 'Registration failed')
+        setIsLoading(false)
+        return
+      }
+
+      // Automatically sign in after registration
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        alert('Registration successful but login failed. Please try logging in manually.')
+        window.location.href = '/login'
+      } else {
+        // Successful registration and login
+        window.location.href = '/dashboard'
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      alert('An error occurred during registration')
+      setIsLoading(false)
+    }
   }
 
   const handleGoogleSignup = async () => {
@@ -64,7 +110,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <Card className="shadow-2xl">
+        <Card className="shadow-2xl bg-white border-0">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
             <CardDescription>

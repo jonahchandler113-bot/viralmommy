@@ -20,8 +20,26 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // TODO: Implement email/password login logic
-    setTimeout(() => setIsLoading(false), 1000)
+
+    try {
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        alert(result.error)
+        setIsLoading(false)
+      } else {
+        // Successful login - redirect to dashboard
+        window.location.href = '/dashboard'
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      alert('An error occurred during login')
+      setIsLoading(false)
+    }
   }
 
   const handleGoogleLogin = async () => {
@@ -58,7 +76,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Card className="shadow-2xl">
+        <Card className="shadow-2xl bg-white border-0">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold">Welcome back!</CardTitle>
             <CardDescription>
