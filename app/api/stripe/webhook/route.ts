@@ -46,7 +46,8 @@ export async function POST(request: Request) {
 
           if (userId && subscriptionId) {
             // Get subscription details
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+            const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
+            const subscription = subscriptionResponse as Stripe.Subscription
 
             // Determine tier based on price
             let tier: 'BASIC' | 'PRO' | 'ENTERPRISE' = 'PRO'
