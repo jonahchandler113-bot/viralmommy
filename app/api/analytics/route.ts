@@ -97,6 +97,7 @@ export async function GET(request: Request) {
 
     // Performance over time (group by week)
     const performanceOverTime = publishedPosts.reduce((acc, post) => {
+      if (!post.publishedAt) return acc
       const date = new Date(post.publishedAt)
       const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay())
       const weekKey = weekStart.toISOString().split('T')[0]
@@ -166,6 +167,7 @@ export async function GET(request: Request) {
 
     // Best posting times (hour of day analysis)
     const postingTimes = publishedPosts.reduce((acc, post) => {
+      if (!post.publishedAt) return acc
       const hour = new Date(post.publishedAt).getHours()
       if (!acc[hour]) {
         acc[hour] = {
