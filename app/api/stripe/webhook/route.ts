@@ -47,7 +47,7 @@ export async function POST(request: Request) {
           if (userId && subscriptionId) {
             // Get subscription details
             const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId)
-            const subscription = subscriptionResponse as Stripe.Subscription
+            const subscription = subscriptionResponse as any
 
             // Determine tier based on price
             let tier: 'BASIC' | 'PRO' | 'ENTERPRISE' = 'PRO'
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
                 stripeSubscriptionId: subscriptionId,
                 subscriptionTier: tier,
                 subscriptionStatus: subscription.status,
-                subscriptionEndDate: new Date(subscription.currentPeriodEnd * 1000),
+                subscriptionEndDate: new Date((subscription.currentPeriodEnd || subscription.current_period_end) * 1000),
               },
             })
           }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       }
 
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription
+        const subscription = event.data.object as any
 
         // Find user by customer ID
         const user = await prisma.user.findUnique({
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
             where: { id: user.id },
             data: {
               subscriptionStatus: subscription.status,
-              subscriptionEndDate: new Date(subscription.currentPeriodEnd * 1000),
+              subscriptionEndDate: new Date((subscription.currentPeriodEnd || subscription.current_period_end) * 1000),
             },
           })
         }
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       }
 
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
+        const subscription = event.data.object as any
 
         // Find user by customer ID
         const user = await prisma.user.findUnique({
