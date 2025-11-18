@@ -57,6 +57,13 @@ export default function SettingsPage() {
   ]
 
   const handlePlatformConnect = (platformName: string, platformColor: string) => {
+    // Facebook is ready - redirect to OAuth
+    if (platformName === 'Facebook') {
+      window.location.href = '/api/platforms/facebook/connect'
+      return
+    }
+
+    // Others show "Coming Soon" modal
     setSelectedPlatform(platformName)
     setSelectedColor(platformColor)
     setShowComingSoon(true)
