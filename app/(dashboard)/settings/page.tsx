@@ -57,9 +57,16 @@ export default function SettingsPage() {
   ]
 
   const handlePlatformConnect = (platformName: string, platformColor: string) => {
-    // Facebook is ready - redirect to OAuth
-    if (platformName === 'Facebook') {
-      window.location.href = '/api/platforms/facebook/connect'
+    // Platform OAuth routes
+    const platformRoutes: Record<string, string> = {
+      'Facebook': '/api/platforms/facebook/connect',
+      'TikTok': '/api/platforms/tiktok/connect',
+      'YouTube': '/api/platforms/youtube/connect',
+    }
+
+    // Check if platform has OAuth integration
+    if (platformRoutes[platformName]) {
+      window.location.href = platformRoutes[platformName]
       return
     }
 
