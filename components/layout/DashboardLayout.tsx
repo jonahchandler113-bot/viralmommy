@@ -37,6 +37,7 @@ const navigation = [
   { name: 'Upload', href: '/upload', icon: Upload },
   { name: 'Videos', href: '/videos', icon: Video },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { name: 'AI Tools', href: '/ai-tools', icon: Sparkles },
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
