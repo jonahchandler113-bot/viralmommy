@@ -59,27 +59,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Save video record to database
+    // Storage URLs are now R2 URLs (r2://bucket/key format)
     const video = await prisma.video.create({
       data: {
         userId,
         filename: uploadResult.filename,
         originalName: uploadResult.originalName,
         storageKey: uploadResult.storageKey,
-        storageUrl: `/uploads/${uploadResult.storageKey}`,
+        storageUrl: `r2://${process.env.CLOUDFLARE_R2_BUCKET_NAME}/${uploadResult.storageKey}`,
         thumbnailUrl: uploadResult.thumbnailUrl,
         duration: uploadResult.duration,
         size: uploadResult.size,
         mimeType: uploadResult.mimeType,
-        status: 'UPLOADING',
+        status: 'PROCESSING',
         metadata: uploadResult.metadata || {},
       },
     });
 
     // Add video to processing queue
+    // Note: filePath is now just a placeholder for R2 videos - the worker will download from R2
     const job = await addProcessVideoJob({
       videoId: video.id,
       userId,
-      filePath: `./uploads/${uploadResult.storageKey}`,
+      filePath: uploadResult.storageKey, // This is the R2 key, worker will handle download
       filename: uploadResult.filename,
     });
 

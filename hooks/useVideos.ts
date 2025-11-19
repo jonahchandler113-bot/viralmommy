@@ -1,5 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+export interface PublishedPost {
+  id: string
+  platform: 'TIKTOK' | 'INSTAGRAM' | 'YOUTUBE' | 'TWITTER' | 'FACEBOOK'
+  status: string
+  views: number
+  likes: number
+  comments: number
+  shares: number
+  engagementRate: number | null
+  publishedAt: string | null
+  postUrl: string | null
+}
+
+export interface VideoAnalytics {
+  totalViews: number
+  totalLikes: number
+  totalComments: number
+  totalShares: number
+  totalEngagement: number
+  avgEngagementRate: number
+}
+
 export interface Video {
   id: string
   userId: string
@@ -19,6 +41,8 @@ export interface Video {
   createdAt: string
   updatedAt: string
   aiStrategies?: AiStrategy[]
+  publishedPosts?: PublishedPost[]
+  analytics?: VideoAnalytics
 }
 
 export interface AiStrategy {

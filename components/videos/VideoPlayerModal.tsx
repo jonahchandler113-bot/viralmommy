@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { X, Sparkles, TrendingUp, Hash, Target } from 'lucide-react'
+import { X, Sparkles, TrendingUp, Hash, Target, Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { Video } from '@/hooks/useVideos'
+import { useVideoStream } from '@/hooks/useVideoStream'
 
 interface VideoPlayerModalProps {
   video: Video | null
@@ -19,6 +20,12 @@ interface VideoPlayerModalProps {
 }
 
 export function VideoPlayerModal({ video, open, onClose }: VideoPlayerModalProps) {
+  // Get signed URLs for R2 videos
+  const { videoUrl, thumbnailUrl, isLoading, error } = useVideoStream(
+    video?.id || null,
+    video?.storageUrl || undefined
+  )
+
   // Handle ESC key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -50,13 +57,25 @@ export function VideoPlayerModal({ video, open, onClose }: VideoPlayerModalProps
 
         {/* Video Player */}
         <div className="relative aspect-video bg-black">
-          {video.storageUrl ? (
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+              <p className="ml-3 text-white">Loading video...</p>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-red-400 mb-2">Failed to load video</p>
+                <p className="text-sm text-gray-400">{error}</p>
+              </div>
+            </div>
+          ) : videoUrl ? (
             <video
-              src={video.storageUrl}
+              src={videoUrl}
               controls
               autoPlay
               className="w-full h-full"
-              poster={video.thumbnailUrl || undefined}
+              poster={thumbnailUrl || video.thumbnailUrl || undefined}
             >
               Your browser does not support the video tag.
             </video>

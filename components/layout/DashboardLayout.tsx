@@ -16,7 +16,8 @@ import {
   LogOut,
   User,
   CreditCard,
-  ChevronRight
+  ChevronRight,
+  Sparkles
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import AIChatPanel from '@/components/ai-assistant/AIChatPanel'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -44,6 +46,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [aiChatOpen, setAiChatOpen] = useState(false)
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -279,6 +282,36 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* AI Chat Panel */}
+      <AIChatPanel
+        isOpen={aiChatOpen}
+        onClose={() => setAiChatOpen(false)}
+        context={{
+          analyticsPage: pathname === '/analytics',
+          focusArea: pathname.replace('/', ''),
+        }}
+      />
+
+      {/* Floating AI Assistant Button */}
+      <button
+        onClick={() => setAiChatOpen(true)}
+        className={cn(
+          "fixed bottom-6 right-6 z-30",
+          "h-14 w-14 rounded-full",
+          "bg-gradient-to-br from-violet-500 to-purple-600",
+          "hover:from-violet-600 hover:to-purple-700",
+          "shadow-xl hover:shadow-2xl",
+          "flex items-center justify-center",
+          "transition-all duration-200",
+          "hover:scale-110",
+          "group",
+          aiChatOpen && "opacity-0 pointer-events-none"
+        )}
+        aria-label="Open AI Assistant"
+      >
+        <Sparkles className="h-6 w-6 text-white group-hover:rotate-12 transition-transform" />
+      </button>
     </div>
   )
 }

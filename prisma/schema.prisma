@@ -65,6 +65,7 @@ model User {
   brandKits            BrandKit[]
   publishedPosts       PublishedPost[]
   apiKeys              ApiKey[]
+  aiConversations      AiConversation[]
 
   @@index([email])
   @@index([stripeCustomerId])
@@ -271,4 +272,23 @@ model ApiKey {
   @@index([userId])
   @@index([key])
   @@map("api_keys")
+}
+
+// AI Conversation Model
+model AiConversation {
+  id          String   @id @default(uuid())
+  userId      String
+  messages    Json     // Array of message objects with role, content, timestamp
+  context     Json?    // Additional context (videoId, platform, etc.)
+  model       String   // AI model used (e.g., "claude-sonnet-4-20250514")
+  tokensUsed  Int?     // Total tokens consumed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("ai_conversations")
 }

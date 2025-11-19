@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { Upload, Lightbulb, Droplet, Calendar, ArrowRight } from 'lucide-react'
+import { Upload, Video, BarChart3, Settings, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
 export function QuickActionsBar() {
@@ -18,38 +18,44 @@ export function QuickActionsBar() {
         </div>
       </Link>
 
-      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
-        <div className="flex items-center justify-between mb-3">
-          <div className="rounded-lg bg-yellow-100 p-2">
-            <Lightbulb className="h-5 w-5 text-yellow-600" />
+      <Link href="/videos" className="block">
+        <div className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="rounded-lg bg-purple-100 p-2">
+              <Video className="h-5 w-5 text-purple-600" />
+            </div>
+            <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
           </div>
-          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+          <h3 className="font-bold text-lg mb-1 text-gray-900">View All Videos</h3>
+          <p className="text-sm text-gray-600">Manage your video library</p>
         </div>
-        <h3 className="font-bold text-lg mb-1 text-gray-900">Generate Content Ideas</h3>
-        <p className="text-sm text-gray-600">AI-powered video concepts</p>
-      </button>
+      </Link>
 
-      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
-        <div className="flex items-center justify-between mb-3">
-          <div className="rounded-lg bg-blue-100 p-2">
-            <Droplet className="h-5 w-5 text-blue-600" />
+      <Link href="/analytics" className="block">
+        <div className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="rounded-lg bg-blue-100 p-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+            </div>
+            <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
           </div>
-          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+          <h3 className="font-bold text-lg mb-1 text-gray-900">View Analytics</h3>
+          <p className="text-sm text-gray-600">Track your performance</p>
         </div>
-        <h3 className="font-bold text-lg mb-1 text-gray-900">Check Watermark Status</h3>
-        <p className="text-sm text-gray-600">Ensure your videos are clean</p>
-      </button>
+      </Link>
 
-      <button className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200 text-left">
-        <div className="flex items-center justify-between mb-3">
-          <div className="rounded-lg bg-green-100 p-2">
-            <Calendar className="h-5 w-5 text-green-600" />
+      <Link href="/settings" className="block">
+        <div className="group bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow-lg transition-all duration-200">
+          <div className="flex items-center justify-between mb-3">
+            <div className="rounded-lg bg-green-100 p-2">
+              <Settings className="h-5 w-5 text-green-600" />
+            </div>
+            <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
           </div>
-          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:translate-x-1 group-hover:text-purple-600 transition-all" />
+          <h3 className="font-bold text-lg mb-1 text-gray-900">Connect Platforms</h3>
+          <p className="text-sm text-gray-600">Manage social accounts</p>
         </div>
-        <h3 className="font-bold text-lg mb-1 text-gray-900">View Content Calendar</h3>
-        <p className="text-sm text-gray-600">Plan your posting schedule</p>
-      </button>
+      </Link>
     </div>
   )
 }

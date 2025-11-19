@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     // Get total count for pagination
     const total = await prisma.video.count({ where });
 
-    // Get videos
+    // Get videos with published platforms and analytics
     const videos = await prisma.video.findMany({
       where,
       orderBy: {
@@ -76,7 +76,54 @@ export async function GET(request: NextRequest) {
         updatedAt: true,
         aiAnalysis: true,
         metadata: true,
+        publishedPosts: {
+          select: {
+            id: true,
+            platform: true,
+            status: true,
+            views: true,
+            likes: true,
+            comments: true,
+            shares: true,
+            engagementRate: true,
+            publishedAt: true,
+            postUrl: true,
+          },
+        },
+        aiStrategies: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            id: true,
+            viralScore: true,
+            hooks: true,
+            captions: true,
+            hashtags: true,
+          },
+        },
       },
+    });
+
+    // Calculate aggregated stats for each video
+    const videosWithStats = videos.map(video => {
+      const totalViews = video.publishedPosts.reduce((sum, post) => sum + (post.views || 0), 0);
+      const totalLikes = video.publishedPosts.reduce((sum, post) => sum + (post.likes || 0), 0);
+      const totalComments = video.publishedPosts.reduce((sum, post) => sum + (post.comments || 0), 0);
+      const totalShares = video.publishedPosts.reduce((sum, post) => sum + (post.shares || 0), 0);
+      const totalEngagement = totalLikes + totalComments + totalShares;
+      const avgEngagementRate = totalViews > 0 ? (totalEngagement / totalViews) * 100 : 0;
+
+      return {
+        ...video,
+        analytics: {
+          totalViews,
+          totalLikes,
+          totalComments,
+          totalShares,
+          totalEngagement,
+          avgEngagementRate,
+        },
+      };
     });
 
     const totalPages = Math.ceil(total / limit);
@@ -84,7 +131,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      videos,
+      videos: videosWithStats,
       pagination: {
         page,
         limit,

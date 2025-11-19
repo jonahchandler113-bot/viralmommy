@@ -4,7 +4,11 @@ import { JobType, ProcessVideoJobData, addAnalyzeVideoJob } from './video-queue'
 import { extractKeyFrames } from '../video/frame-extraction';
 import { getVideoMetadata } from '../video/metadata';
 import { PrismaClient } from '@prisma/client';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { writeFile, mkdir, unlink } from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
+import { Readable } from 'stream';
 
 const prisma = new PrismaClient();
 
@@ -19,12 +23,54 @@ const connection = new IORedis(REDIS_URL, {
 const isBuilding = process.env.NEXT_PHASE === 'phase-production-build';
 
 /**
+ * Download video from R2 to local temp file for processing
+ */
+async function downloadVideoFromR2(storageKey: string, localPath: string): Promise<void> {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID!;
+  const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+  const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME!;
+
+  const client = new S3Client({
+    region: 'auto',
+    endpoint,
+    credentials: {
+      accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+    },
+  });
+
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: storageKey,
+  });
+
+  const response = await client.send(command);
+
+  if (!response.Body) {
+    throw new Error('Failed to download video from R2');
+  }
+
+  // Convert stream to buffer
+  const stream = response.Body as Readable;
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+
+  const buffer = Buffer.concat(chunks);
+  await writeFile(localPath, buffer);
+}
+
+/**
  * Video Processing Worker
  * Handles video upload processing:
- * 1. Extract metadata
- * 2. Extract key frames
- * 3. Update database
- * 4. Trigger AI analysis
+ * 1. Download from R2 (if needed)
+ * 2. Extract metadata
+ * 3. Extract key frames
+ * 4. Update database
+ * 5. Trigger AI analysis
+ * 6. Clean up temp files
  */
 export const videoWorker = !isBuilding ? new Worker(
   'video-processing',
@@ -32,6 +78,9 @@ export const videoWorker = !isBuilding ? new Worker(
     const { videoId, userId, filePath, filename } = job.data;
 
     console.log(`[Video Worker] Processing video ${videoId}...`);
+
+    let tempFilePath = filePath;
+    let needsCleanup = false;
 
     try {
       // Step 1: Update status to PROCESSING
@@ -41,11 +90,43 @@ export const videoWorker = !isBuilding ? new Worker(
         data: { status: 'PROCESSING' },
       });
 
+      // Get video record to check storage location
+      const video = await prisma.video.findUnique({
+        where: { id: videoId },
+        select: { storageKey: true, storageUrl: true },
+      });
+
+      if (!video) {
+        throw new Error(`Video ${videoId} not found in database`);
+      }
+
+      // Check if video is in R2 (new uploads) or local storage (legacy)
+      const isR2Video = video.storageUrl?.startsWith('r2://');
+
+      if (isR2Video) {
+        console.log(`[Video Worker] Downloading video from R2: ${video.storageKey}`);
+
+        // Create temp directory
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (!existsSync(tempDir)) {
+          await mkdir(tempDir, { recursive: true });
+        }
+
+        // Download to temp file
+        tempFilePath = path.join(tempDir, `${videoId}-${filename}`);
+        await downloadVideoFromR2(video.storageKey, tempFilePath);
+        needsCleanup = true;
+
+        console.log(`[Video Worker] Video downloaded to: ${tempFilePath}`);
+      } else {
+        console.log(`[Video Worker] Using local file: ${filePath}`);
+      }
+
       console.log(`[Video Worker] Extracting metadata for ${videoId}...`);
 
       // Step 2: Extract metadata
       await job.updateProgress(20);
-      const metadata = await getVideoMetadata(filePath);
+      const metadata = await getVideoMetadata(tempFilePath);
 
       console.log(`[Video Worker] Metadata extracted: ${metadata.duration}s, ${metadata.width}x${metadata.height}`);
 
@@ -85,7 +166,7 @@ export const videoWorker = !isBuilding ? new Worker(
       await addAnalyzeVideoJob({
         videoId,
         userId,
-        filePath,
+        filePath: tempFilePath, // Use temp file path for AI analysis
         framesExtracted: frames.length,
       });
 
@@ -93,6 +174,14 @@ export const videoWorker = !isBuilding ? new Worker(
 
       // Step 6: Complete
       await job.updateProgress(100);
+
+      // Step 7: Clean up temp file if needed
+      if (needsCleanup) {
+        console.log(`[Video Worker] Cleaning up temp file: ${tempFilePath}`);
+        await unlink(tempFilePath).catch(err =>
+          console.error(`[Video Worker] Failed to cleanup temp file:`, err)
+        );
+      }
 
       return {
         success: true,
@@ -105,6 +194,13 @@ export const videoWorker = !isBuilding ? new Worker(
       };
     } catch (error) {
       console.error(`[Video Worker] Error processing video ${videoId}:`, error);
+
+      // Clean up temp file if needed
+      if (needsCleanup && tempFilePath) {
+        await unlink(tempFilePath).catch(err =>
+          console.error(`[Video Worker] Failed to cleanup temp file after error:`, err)
+        );
+      }
 
       // Update video status to FAILED
       await prisma.video.update({
