@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,17 +38,50 @@ export default function SettingsPage() {
   // Subscription state
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null)
 
+  // Platform connections state
+  const [platforms, setPlatforms] = useState([
+    { name: 'TikTok', platform: 'TIKTOK', connected: false, color: '#000000', icon: '📱', accountName: '' },
+    { name: 'Instagram', platform: 'INSTAGRAM', connected: false, color: '#E4405F', icon: '📷', accountName: '' },
+    { name: 'YouTube', platform: 'YOUTUBE', connected: false, color: '#FF0000', icon: '▶️', accountName: '' },
+    { name: 'Facebook', platform: 'FACEBOOK', connected: false, color: '#1877F2', icon: '👥', accountName: '' },
+  ])
+  const [connectionsLoading, setConnectionsLoading] = useState(true)
+
   const userEmail = session?.user?.email || 'user@example.com'
   const userName = session?.user?.name || 'Creator'
   const userImage = session?.user?.image
   const userInitial = userName.charAt(0).toUpperCase()
 
-  const platforms = [
-    { name: 'TikTok', connected: false, color: '#000000', icon: '📱' },
-    { name: 'Instagram', connected: false, color: '#E4405F', icon: '📷' },
-    { name: 'YouTube', connected: false, color: '#FF0000', icon: '▶️' },
-    { name: 'Facebook', connected: false, color: '#1877F2', icon: '👥' },
-  ]
+  // Fetch platform connections
+  useEffect(() => {
+    const fetchConnections = async () => {
+      try {
+        const response = await fetch('/api/platforms/connections')
+        if (response.ok) {
+          const data = await response.json()
+
+          // Update platforms with connection status
+          setPlatforms(prev => prev.map(platform => {
+            const connection = data.connections?.find(
+              (c: any) => c.platform === platform.platform
+            )
+            return {
+              ...platform,
+              connected: !!connection,
+              accountName: connection?.accountName || connection?.accountHandle || '',
+              connectionId: connection?.id,
+            }
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to fetch connections:', error)
+      } finally {
+        setConnectionsLoading(false)
+      }
+    }
+
+    fetchConnections()
+  }, [])
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -62,6 +95,7 @@ export default function SettingsPage() {
       'Facebook': '/api/platforms/facebook/connect',
       'TikTok': '/api/platforms/tiktok/connect',
       'YouTube': '/api/platforms/youtube/connect',
+      'Instagram': '/api/platforms/facebook/connect', // Instagram through Facebook
     }
 
     // Check if platform has OAuth integration
@@ -74,6 +108,46 @@ export default function SettingsPage() {
     setSelectedPlatform(platformName)
     setSelectedColor(platformColor)
     setShowComingSoon(true)
+  }
+
+  const handlePlatformDisconnect = async (platformName: string, platformType: string) => {
+    if (!confirm(`Are you sure you want to disconnect ${platformName}?`)) {
+      return
+    }
+
+    try {
+      // Platform disconnect routes
+      const disconnectRoutes: Record<string, string> = {
+        'FACEBOOK': '/api/platforms/facebook/disconnect',
+        'TIKTOK': '/api/platforms/tiktok/disconnect',
+        'YOUTUBE': '/api/platforms/youtube/disconnect',
+        'INSTAGRAM': '/api/platforms/instagram/disconnect',
+      }
+
+      const route = disconnectRoutes[platformType]
+      if (!route) {
+        alert('Disconnect not yet implemented for this platform')
+        return
+      }
+
+      const response = await fetch(route, { method: 'POST' })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to disconnect platform')
+      }
+
+      // Update UI
+      setPlatforms(prev => prev.map(p =>
+        p.platform === platformType
+          ? { ...p, connected: false, accountName: '', connectionId: undefined }
+          : p
+      ))
+
+      alert(`${platformName} disconnected successfully`)
+    } catch (error: any) {
+      alert(error.message || 'Failed to disconnect platform')
+    }
   }
 
   const handleProfileSave = async () => {
@@ -361,43 +435,58 @@ export default function SettingsPage() {
               <CardDescription>Manage your social media platform connections for publishing content</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {platforms.map((platform) => (
-                <div
-                  key={platform.name}
-                  className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl">{platform.icon}</div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{platform.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {platform.connected ? 'Connected' : 'Not connected'}
-                      </p>
+              {connectionsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  <span className="ml-2 text-sm text-gray-600">Loading connections...</span>
+                </div>
+              ) : (
+                platforms.map((platform) => (
+                  <div
+                    key={platform.name}
+                    className="flex items-center justify-between p-4 rounded-lg border border-gray-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl">{platform.icon}</div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{platform.name}</p>
+                        <p className="text-sm text-gray-600">
+                          {platform.connected
+                            ? platform.accountName
+                              ? `@${platform.accountName}`
+                              : 'Connected'
+                            : 'Not connected'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {platform.connected ? (
+                        <>
+                          <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                            <CheckCircle2 className="h-4 w-4" />
+                            Connected
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePlatformDisconnect(platform.name, platform.platform)}
+                          >
+                            Disconnect
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                          onClick={() => handlePlatformConnect(platform.name, platform.color)}
+                        >
+                          Connect
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {platform.connected ? (
-                      <>
-                        <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Connected
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Disconnect
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                        onClick={() => handlePlatformConnect(platform.name, platform.color)}
-                      >
-                        Connect
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
 
